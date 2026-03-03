@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ディベート履歴 - AI Debate</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+
+<header class="bg-gray-900 border-b border-gray-700 sticky top-0 z-10">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <a href="/" class="text-gray-400 hover:text-white transition-colors">← 戻る</a>
+            <h1 class="text-lg font-bold">ディベート履歴</h1>
+        </div>
+    </div>
+</header>
+
+<main class="max-w-4xl mx-auto px-4 py-8">
+    <div th:if="${sessions.isEmpty()}" class="text-center text-gray-500 py-20">
+        <p class="text-2xl mb-2">📭</p>
+        <p>まだディベート履歴がありません</p>
+        <a href="/" class="mt-4 inline-block text-blue-400 hover:text-blue-300">最初のディベートを開始する →</a>
+    </div>
+
+    <div class="space-y-4" th:unless="${sessions.isEmpty()}">
+        <div th:each="session : ${sessions}"
+             class="bg-gray-900 border border-gray-700 rounded-xl p-5 hover:border-gray-500 transition-colors">
+            <div class="flex items-start justify-between mb-3">
+                <h2 class="font-bold text-lg" th:text="${session.topic}"></h2>
+                <span th:if="${session.status.name() == 'COMPLETED'}"
+                      class="text-xs bg-green-900 text-green-300 px-2 py-1 rounded-full">完了</span>
+                <span th:if="${session.status.name() == 'RUNNING'}"
+                      class="text-xs bg-yellow-900 text-yellow-300 px-2 py-1 rounded-full animate-pulse">進行中</span>
+                <span th:if="${session.status.name() == 'ERROR'}"
+                      class="text-xs bg-red-900 text-red-300 px-2 py-1 rounded-full">エラー</span>
+            </div>
+
+            <div class="flex items-center gap-4 text-sm text-gray-400 mb-3">
+                <span th:text="${session.ai1Name + ' (' + session.ai1Role + ')'}" class="text-blue-400"></span>
+                <span class="text-gray-600">vs</span>
+                <span th:text="${session.ai2Name + ' (' + session.ai2Role + ')'}" class="text-purple-400"></span>
+            </div>
+
+            <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-600"
+                      th:text="${#temporals.format(session.startedAt, 'yyyy/MM/dd HH:mm')}"></span>
+                <a th:href="'/debate/history/' + ${session.id}"
+                   class="text-sm text-blue-400 hover:text-blue-300 transition-colors">
+                    詳細を見る →
+                </a>
+            </div>
+        </div>
+    </div>
+</main>
+</body>
+</html>

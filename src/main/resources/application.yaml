@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: debate
+  datasource:
+    url: jdbc:h2:file:./data/debatedb;AUTO_SERVER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    database-platform: org.hibernate.dialect.H2Dialect
+    open-in-view: false
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        enabled: false  # 自動設定を無効化し手動でBeanを作る
+
+debate:
+  mode: external-api  # "ollama" or "external-api"
+  external-api:
+    base-url: http://localhost:3000
+  ai1:
+    base-url: http://localhost:11434
+    model: qwen2.5:7b
+    name: "Qwen 2.5"
+    role: "賛成側"
+    color: "blue"
+  ai2:
+    base-url: http://localhost:11435
+    model: llama3.1:8b
+    name: "Llama 3.1"
+    role: "反対側"
+    color: "purple"
+  duration-minutes: 60
+  max-tokens: 400
+  temperature: 0.7
+  context-window: 10
+  topics:
+    - "AIは人類の仕事を奪うか"
+    - "人類はテクノロジーに依存しすぎているか"
+    - "原子力発電を廃止すべきか"
+    - "週4日労働制を導入すべきか"
+    - "宇宙開発への投資は正当化されるか"
+    - "SNSは民主主義にとって有害か"
+    - "ベーシックインカムを導入すべきか"

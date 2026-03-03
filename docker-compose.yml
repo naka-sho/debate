@@ -1,0 +1,22 @@
+services:
+  ollama-qwen:
+    image: ollama/ollama:latest
+    container_name: debate-ollama-qwen
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_qwen_data:/root/.ollama
+    restart: unless-stopped
+
+  ollama-llama:
+    image: ollama/ollama:latest
+    container_name: debate-ollama-llama
+    ports:
+      - "11435:11434"
+    volumes:
+      - ollama_llama_data:/root/.ollama
+    restart: unless-stopped
+
+volumes:
+  ollama_qwen_data:
+  ollama_llama_data:

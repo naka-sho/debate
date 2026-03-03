@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Debate</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+    <style>
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        .cursor-blink { animation: blink 1s infinite; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in { animation: fadeIn 0.3s ease-out; }
+
+        @keyframes typing {
+            0% { content: ''; }
+            33% { content: '.'; }
+            66% { content: '..'; }
+            100% { content: '...'; }
+        }
+        .typing-dots::after {
+            content: '';
+            animation: typing 1.5s infinite;
+        }
+
+        #chat-container {
+            scroll-behavior: smooth;
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col">
+
+<!-- ヘッダー -->
+<header class="bg-gray-900 border-b border-gray-700 sticky top-0 z-10 shadow-lg">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="text-2xl">⚔️</div>
+            <div>
+                <h1 class="text-lg font-bold text-white">AI Debate</h1>
+                <p class="text-xs text-gray-400" th:if="${debateSession != null}" th:text="'テーマ: ' + ${debateSession.topic}"></p>
+                <p class="text-xs text-gray-400" th:unless="${debateSession != null}">AIによる自動ディベートシステム</p>
+            </div>
+        </div>
+
+        <!-- タイマーとステータス -->
+        <div class="flex items-center gap-4" th:if="${debateRunning}">
+            <div class="flex items-center gap-2">
+                <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span class="text-sm text-green-400">ディベート中</span>
+            </div>
+            <div class="text-sm font-mono text-yellow-300 bg-gray-800 px-3 py-1 rounded-lg" id="timer">
+                --:--
+            </div>
+            <div class="text-xs text-gray-400" id="round-count">ラウンド 0</div>
+        </div>
+
+        <div class="flex items-center gap-2" th:unless="${debateRunning}">
+            <a href="/debate/history"
+               class="text-sm text-gray-400 hover:text-white transition-colors px-3 py-1 rounded border border-gray-700 hover:border-gray-500">
+                📂 履歴
+            </a>
+        </div>
+    </div>
+
+    <!-- AI プレイヤー情報 (ディベート中) -->
+    <div class="max-w-5xl mx-auto px-4 pb-2" th:if="${debateSession != null}">
+        <div class="flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold">Q</div>
+                <div>
+                    <p class="text-sm font-medium" th:text="${debateSession.ai1Name}"></p>
+                    <p class="text-xs text-blue-400" th:text="${debateSession.ai1Model + ' / ' + debateSession.ai1Role}"></p>
+                </div>
+            </div>
+            <div class="text-gray-600 text-lg font-bold">VS</div>
+            <div class="flex items-center gap-2 flex-row-reverse">
+                <div class="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-xs font-bold">L</div>
+                <div class="text-right">
+                    <p class="text-sm font-medium" th:text="${debateSession.ai2Name}"></p>
+                    <p class="text-xs text-purple-400" th:text="${debateSession.ai2Model + ' / ' + debateSession.ai2Role}"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- メインコンテンツ -->
+<main class="flex-1 max-w-5xl mx-auto w-full px-4 py-6">
+
+    <!-- ディベート開始フォーム -->
+    <div th:unless="${debateRunning}" class="mb-8">
+        <div class="bg-gray-900 border border-gray-700 rounded-xl p-6 shadow-xl">
+            <h2 class="text-xl font-bold mb-4 text-center">ディベートを開始する</h2>
+
+            <!-- AIモデル情報 -->
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <div class="bg-gray-800 rounded-lg p-4 border border-blue-800">
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-bold">Q</div>
+                        <div>
+                            <p class="font-medium" th:text="${ai1Props.name}"></p>
+                            <p class="text-xs text-gray-400" th:text="${ai1Props.model}"></p>
+                        </div>
+                    </div>
+                    <p class="text-xs text-blue-400" th:text="${ai1Props.role}"></p>
+                    <p class="text-xs text-gray-500 mt-1">日本語の自然さとコーディング能力が高い</p>
+                </div>
+                <div class="bg-gray-800 rounded-lg p-4 border border-purple-800">
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center font-bold">L</div>
+                        <div>
+                            <p class="font-medium" th:text="${ai2Props.name}"></p>
+                            <p class="text-xs text-gray-400" th:text="${ai2Props.model}"></p>
+                        </div>
+                    </div>
+                    <p class="text-xs text-purple-400" th:text="${ai2Props.role}"></p>
+                    <p class="text-xs text-gray-500 mt-1">安定した推論能力と広い知識</p>
+                </div>
+            </div>
+
+            <form action="/debate/start" method="post" id="start-form">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">テーマを選択または入力</label>
+                    <select name="topic" id="topic-select"
+                            class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-white mb-2 focus:outline-none focus:border-blue-500"
+                            onchange="document.getElementById('topic-input').value = this.value">
+                        <option value="">-- 選択してください --</option>
+                        <option th:each="t : ${topics}" th:value="${t}" th:text="${t}"></option>
+                        <option value="__custom__">カスタム入力...</option>
+                    </select>
+                    <input type="text" name="topic" id="topic-input"
+                           placeholder="またはテーマを直接入力してください"
+                           class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500">
+                </div>
+
+                <button type="submit"
+                        class="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold py-3 px-6 rounded-lg transition-all transform hover:scale-[1.02] shadow-lg">
+                    ⚔️ ディベート開始 (1時間)
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- チャットエリア -->
+    <div id="chat-container" class="space-y-4">
+
+        <!-- 既存メッセージ (Thymeleafでレンダリング) -->
+        <div th:if="${debateSession != null and !messages.isEmpty()}">
+            <div class="text-center mb-6">
+                <div class="inline-flex items-center gap-2 bg-gray-800 px-4 py-2 rounded-full text-sm text-gray-400">
+                    <span>🚀</span>
+                    <span>ディベート開始</span>
+                    <span class="text-gray-600">|</span>
+                    <span th:text="${debateSession.topic}"></span>
+                </div>
+            </div>
+
+            <th:block th:each="msg : ${messages}">
+                <!-- AI1 メッセージ (左) -->
+                <div th:if="${msg.speaker == 'AI1'}"
+                     class="flex items-start gap-3 fade-in" th:id="'msg-' + ${msg.id}">
+                    <div class="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-sm font-bold flex-shrink-0">Q</div>
+                    <div class="max-w-[75%]">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-sm font-medium text-blue-400" th:text="${msg.aiName}"></span>
+                            <span class="text-xs text-gray-600">賛成側</span>
+                            <span class="text-xs text-gray-600" th:text="'R' + ${msg.roundNumber + 1}"></span>
+                        </div>
+                        <div class="bg-gray-800 border border-gray-700 rounded-2xl rounded-tl-sm px-4 py-3">
+                            <p class="text-gray-100 leading-relaxed whitespace-pre-wrap text-sm" th:text="${msg.content}"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI2 メッセージ (右) -->
+                <div th:if="${msg.speaker == 'AI2'}"
+                     class="flex items-start gap-3 flex-row-reverse fade-in" th:id="'msg-' + ${msg.id}">
+                    <div class="w-9 h-9 rounded-full bg-purple-600 flex items-center justify-center text-sm font-bold flex-shrink-0">L</div>
+                    <div class="max-w-[75%]">
+                        <div class="flex items-center gap-2 mb-1 flex-row-reverse">
+                            <span class="text-sm font-medium text-purple-400" th:text="${msg.aiName}"></span>
+                            <span class="text-xs text-gray-600">反対側</span>
+                            <span class="text-xs text-gray-600" th:text="'R' + ${msg.roundNumber + 1}"></span>
+                        </div>
+                        <div class="bg-indigo-900/50 border border-indigo-800 rounded-2xl rounded-tr-sm px-4 py-3">
+                            <p class="text-gray-100 leading-relaxed whitespace-pre-wrap text-sm" th:text="${msg.content}"></p>
+                        </div>
+                    </div>
+                </div>
+            </th:block>
+        </div>
+
+        <!-- リアルタイムメッセージエリア -->
+        <div id="live-messages"></div>
+    </div>
+
+    <!-- ディベート終了バナー -->
+    <div id="debate-end-banner" class="hidden mt-6">
+        <div class="bg-gray-900 border border-gray-700 rounded-xl p-6 text-center">
+            <div class="text-4xl mb-3">🏁</div>
+            <h2 class="text-xl font-bold mb-2">ディベート終了</h2>
+            <p class="text-gray-400 text-sm" id="end-reason"></p>
+            <a href="/" class="mt-4 inline-block bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg transition-colors">
+                新しいディベートを開始
+            </a>
+        </div>
+    </div>
+</main>
+
+<!-- ステータスバー -->
+<footer class="bg-gray-900 border-t border-gray-800 py-2 px-4 sticky bottom-0" th:if="${debateRunning}">
+    <div class="max-w-5xl mx-auto flex items-center justify-between text-xs text-gray-500">
+        <div class="flex items-center gap-3">
+            <span id="status-text">準備中...</span>
+        </div>
+        <div id="connected-info">接続中</div>
+    </div>
+</footer>
+
+<script th:inline="javascript">
+    const debateRunning = /*[[${debateRunning}]]*/ false;
+    const sessionStartedAt = /*[[${debateSession != null ? debateSession.startedAt : null}]]*/ null;
+    const durationMinutes = 60;
+
+    // トピック選択の挙動
+    document.getElementById('topic-select')?.addEventListener('change', function() {
+        const input = document.getElementById('topic-input');
+        if (this.value !== '__custom__') {
+            input.value = this.value;
+        } else {
+            input.value = '';
+            input.focus();
+        }
+    });
+
+    // フォームの送信: select と input の重複を防ぐ
+    document.getElementById('start-form')?.addEventListener('submit', function(e) {
+        const select = document.getElementById('topic-select');
+        const input = document.getElementById('topic-input');
+        // 入力フィールドを優先、なければセレクトの値を使用
+        if (!input.value.trim()) {
+            if (select.value && select.value !== '__custom__') {
+                input.value = select.value;
+            } else {
+                e.preventDefault();
+                alert('テーマを入力または選択してください');
+                return;
+            }
+        }
+        // selectのname属性を削除して重複送信を防ぐ
+        select.removeAttribute('name');
+    });
+
+    // タイマー更新
+    let timerInterval;
+    let startTime;
+
+    function updateTimer() {
+        if (!startTime) return;
+        const elapsed = (Date.now() - startTime) / 1000;
+        const remaining = Math.max(0, durationMinutes * 60 - elapsed);
+        const minutes = Math.floor(remaining / 60);
+        const seconds = Math.floor(remaining % 60);
+        const timerEl = document.getElementById('timer');
+        if (timerEl) {
+            timerEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+        if (remaining <= 0) {
+            clearInterval(timerInterval);
+        }
+    }
+
+    if (sessionStartedAt) {
+        startTime = new Date(sessionStartedAt).getTime();
+        timerInterval = setInterval(updateTimer, 1000);
+        updateTimer();
+    }
+
+    // SSE 接続
+    if (debateRunning) {
+        connectSSE();
+    }
+
+    let currentTempId = null;
+    let currentBubbleEl = null;
+    let currentContentEl = null;
+
+    function connectSSE() {
+        const evtSource = new EventSource('/debate/events');
+
+        evtSource.addEventListener('debate-start', (e) => {
+            const data = JSON.parse(e.data);
+            if (!startTime) {
+                startTime = Date.now();
+                timerInterval = setInterval(updateTimer, 1000);
+            }
+            appendSystemMessage('🚀 ディベート開始: ' + data.topic);
+        });
+
+        evtSource.addEventListener('message-start', (e) => {
+            const data = JSON.parse(e.data);
+            currentTempId = data.tempId;
+            currentBubbleEl = createBubble(data);
+            currentContentEl = currentBubbleEl.querySelector('.message-content');
+            document.getElementById('live-messages').appendChild(currentBubbleEl);
+            scrollToBottom();
+        });
+
+        evtSource.addEventListener('token', (e) => {
+            const data = JSON.parse(e.data);
+            if (data.tempId === currentTempId && currentContentEl) {
+                // タイピングインジケータを削除
+                const typingEl = currentContentEl.querySelector('.typing-indicator');
+                if (typingEl) typingEl.remove();
+                // トークンを追加
+                currentContentEl.textContent += data.text;
+                scrollToBottom();
+            }
+        });
+
+        evtSource.addEventListener('message-complete', (e) => {
+            const data = JSON.parse(e.data);
+            if (currentBubbleEl) {
+                currentBubbleEl.id = 'msg-' + data.messageId;
+                currentBubbleEl.dataset.complete = 'true';
+                // タイピングカーソルを削除
+                const cursor = currentBubbleEl.querySelector('.cursor-blink');
+                if (cursor) cursor.remove();
+            }
+            currentTempId = null;
+            currentBubbleEl = null;
+            currentContentEl = null;
+        });
+
+        evtSource.addEventListener('status', (e) => {
+            const data = JSON.parse(e.data);
+            const roundEl = document.getElementById('round-count');
+            if (roundEl) roundEl.textContent = 'ラウンド ' + data.roundCount;
+            const statusEl = document.getElementById('status-text');
+            if (statusEl) statusEl.textContent = '残り ' + formatSeconds(data.remainingSeconds);
+        });
+
+        evtSource.addEventListener('debate-complete', (e) => {
+            const data = JSON.parse(e.data);
+            clearInterval(timerInterval);
+            document.getElementById('debate-end-banner').classList.remove('hidden');
+            document.getElementById('end-reason').textContent = data.reason;
+            const footer = document.querySelector('footer');
+            if (footer) footer.remove();
+            evtSource.close();
+        });
+
+        evtSource.onerror = () => {
+            console.error('SSE connection error');
+        };
+    }
+
+    function createBubble(data) {
+        const isAI1 = data.speaker === 'AI1';
+        const wrapper = document.createElement('div');
+        wrapper.className = isAI1
+            ? 'flex items-start gap-3 fade-in'
+            : 'flex items-start gap-3 flex-row-reverse fade-in';
+
+        const avatarBg = isAI1 ? 'bg-blue-600' : 'bg-purple-600';
+        const avatarText = isAI1 ? 'Q' : 'L';
+        const nameCls = isAI1 ? 'text-blue-400' : 'text-purple-400';
+        const bubbleCls = isAI1
+            ? 'bg-gray-800 border border-gray-700 rounded-2xl rounded-tl-sm'
+            : 'bg-indigo-900/50 border border-indigo-800 rounded-2xl rounded-tr-sm';
+        const headerFlex = isAI1 ? '' : 'flex-row-reverse';
+        const roleText = isAI1 ? '賛成側' : '反対側';
+
+        wrapper.innerHTML = `
+            <div class="w-9 h-9 rounded-full ${avatarBg} flex items-center justify-center text-sm font-bold flex-shrink-0">${avatarText}</div>
+            <div class="max-w-[75%]">
+                <div class="flex items-center gap-2 mb-1 ${headerFlex}">
+                    <span class="text-sm font-medium ${nameCls}">${escapeHtml(data.aiName)}</span>
+                    <span class="text-xs text-gray-600">${roleText}</span>
+                    <span class="text-xs text-gray-600">R${data.roundNumber + 1}</span>
+                </div>
+                <div class="${bubbleCls} px-4 py-3">
+                    <p class="message-content text-gray-100 leading-relaxed whitespace-pre-wrap text-sm">
+                        <span class="typing-indicator text-gray-500 typing-dots">考え中</span>
+                    </p>
+                </div>
+            </div>
+        `;
+        return wrapper;
+    }
+
+    function appendSystemMessage(text) {
+        const el = document.createElement('div');
+        el.className = 'text-center';
+        el.innerHTML = `<div class="inline-flex items-center gap-2 bg-gray-800 px-4 py-2 rounded-full text-sm text-gray-400">${escapeHtml(text)}</div>`;
+        document.getElementById('live-messages').appendChild(el);
+        scrollToBottom();
+    }
+
+    function scrollToBottom() {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+
+    function formatSeconds(sec) {
+        const m = Math.floor(sec / 60);
+        const s = Math.floor(sec % 60);
+        return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.appendChild(document.createTextNode(str));
+        return div.innerHTML;
+    }
+</script>
+</body>
+</html>
