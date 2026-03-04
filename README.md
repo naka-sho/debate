@@ -24,14 +24,36 @@
 
 ### 前提条件
 
-- Java 25+
+- [SDKMAN](https://sdkman.io/) (Java バージョン管理、推奨)
 - Docker / Docker Compose
+
+### Java のインストール (SDKMAN 推奨)
+
+```bash
+# SDKMAN をまだインストールしていない場合
+curl -s "https://get.sdkman.io" | bash
+source "$HOME/.sdkman/bin/sdkman-init.sh"
+
+# プロジェクトの .sdkmanrc を読み込んで Java をインストール・切り替え
+sdk env install
+```
+
+以降は `sdk env` で自動的に正しい Java バージョンに切り替わります。
 
 ### 1. Ollamaコンテナを起動
 
 ```bash
 docker compose up -d
 ```
+
+**GPU を使う場合 (NVIDIA):**
+
+```bash
+cp docker-compose.override.sample.yaml docker-compose.override.yaml
+docker compose up -d
+```
+
+`nvidia-container-toolkit` が必要です。詳細は `docker-compose.override.sample.yaml` を参照してください。
 
 ### 2. モデルをプル
 

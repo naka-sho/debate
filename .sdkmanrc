@@ -1,0 +1,4 @@
+# sdkman: Java version for this project
+# Install: sdk install java 25.ea.5-open
+# Use:     sdk env
+java=25-amzn
