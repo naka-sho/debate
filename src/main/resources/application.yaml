@@ -23,7 +23,7 @@ spring:
         enabled: false  # 自動設定を無効化し手動でBeanを作る
 
 debate:
-  mode: external-api  # "ollama" or "external-api"
+  mode: ollama  # "ollama" or "external-api"
   external-api:
     base-url: http://localhost:3000
   ai1:
